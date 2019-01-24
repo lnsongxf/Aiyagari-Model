@@ -1,0 +1,7 @@
+# Households Problem
+# State variables s_t =(a_t,z_t), where a_t is the asset in period t, and z_t is the shock 
+# Choice variable a_{t+1}
+
+import numpy as np
+from numba import jit
+
