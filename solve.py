@@ -23,7 +23,7 @@ class Aiyagari:
                  alpha = 0.33,
                  delta = 0.05,                
                  a_min = 1e-6,
-                 a_max = 10,
+                 a_max = 20,
                  a_size = 100,
                  Pi = [[0.9, 0.1], [0.1,0.9]],
                  z_val = [0.5, 1.5]):
@@ -56,24 +56,48 @@ class Aiyagari:
             z_i = s_i % self.z_size
             a_star[z_i, a_i] = self.a_val[solution.sigma[s_i]]
 
-        # r and w from FOCs of firm's profits max problem
-        w = A * (1 - alpha) * (A * alpha / (r + delta))**(alpha / (1 - alpha))
+        # Create grid for r
+        nr = 20
+        r_val = np.linspace(0.005, 0.04, nr)
 
-        # reset r and w, rebuild R, and re-solve the dynamic problem
-        self.r, self.w = r, w
-        build_R(self.R, self.a_size, self.z_size, self.a_val, self.z_val, self.r, self.w)
-        aiyagari_dp = DiscreteDP(self.R, self.T, self.beta)
+        # Create supply for capital
+        k_val = np.empty(nr)
+        for i, r in enumerate(r_val):
+            self.r = r
+            w = A*(1-alpha)*(A*alpha/(r+delta))**(alpha/(1-alpha))
+            self.w = w
+            build_R(self.R, self.a_size, self.z_size, self.a_val, self.z_val, self.r, self.w)
+            aiyagari_dp = DiscreteDP(self.R, self.T, self.beta)
 
-        # Compute the optimal policy
-        aiyagari_policy = aiyagari_dp.solve(method='policy_iteration')
+            # Compute the optimal policy
+            aiyagari_policy = aiyagari_dp.solve(method='policy_iteration')
     
-        # Compute the stationary distribution
-        stationary_probs = aiyagari_policy.mc.stationary_distributions[0]
-        
-        asset_probs = 
-        
+            # Compute the stationary distribution
+            stationary_probs = aiyagari_policy.mc.stationary_distributions[0]
 
+            # Compute the marginal distribution for assets
+            asset_probs = np.zeros(a_size)
+            for a_i in range(a_size):
+                for z_i in range(self.z_size):
+                    asset_probs[a_i] += stationary_probs[a_i*self.z_size+z_i]
+            # Compute capital supply k
+            k_supply = np.sum(asset_probs*self.a_val)
+            k_val[i] = k_supply
 
+        # Capital demand is given by FOC of firm problem
+        rd = np.empty(nr)
+        for i in range(nr):
+            rd[i] = A*alpha*(N/k_val[i])**(1-alpha)-delta
+             
+        # Plot capital supply and demand
+        fig, ax = plt.subplots(figsize=(10, 6))
+        ax.plot(k_val, r_val, lw=2, alpha=0.6, label='supply of capital')       
+        ax.plot(k_val, rd, lw=2, alpha=0.6, label='demand for capital')
+        ax.grid()
+        ax.set_xlabel('capital')
+        ax.set_ylabel('interest rate')
+        ax.legend(loc='upper right')
+        #plt.show()
         
 
         ed_time = time.time()
@@ -105,6 +129,7 @@ def build_T(T, a_size, z_size,Pi):
                 T[s_i, a_i, a_i*z_size+z_i_next]=Pi[z_i,z_i_next]
                 
     
+
 
 
 if __name__=="__main__":
